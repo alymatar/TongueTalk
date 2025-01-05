@@ -1,0 +1,102 @@
+
+import 'bootstrap/dist/css/bootstrap.min.css';// src/App.js
+import React from 'react';
+import '../App.css';
+import CourseMaterials from './CourseMaterials';
+
+
+function Home() {
+    return ( 
+        <div className="App">
+            
+            <nav className="navbar navbar-expand-lg navbar-light">
+                <a className="navbar-brand" href="#">CourseWebsite</a>
+                <button className="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span className="navbar-toggler-icon"></span>
+                </button>
+                <div className="collapse navbar-collapse" id="navbarNav">
+                    <ul className="navbar-nav ml-auto">
+                        <li className="nav-item">
+                            <a className="nav-link" href="/login">Login</a>
+                        </li>
+                        <li className="nav-item">
+                            <a className="nav-link" href="/register">Register</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <div className="hero-image">
+                <div className="hero-text">
+                    <h1>Arabic Language for Russian Natives</h1>
+                    <p>Dive into the beauty of the Arabic language with tailored instruction that bridges the linguistic divide for Russian speakers, promising a seamless learning journey from the Cyrillic script to the enchanting world of Arabic script, unlocking the secrets of basic communication, cultural nuances, and the fundamental grammar that will empower you to confidently engage with the Arab-speaking world.</p>
+                    <a href="/course" className="btn btn-primary btn-lg">Explore Courses</a>
+                </div>
+            </div>
+            <div className="intro-section">
+                <div className="intro-container">
+                    <div className="intro-image">
+                        <img src={require('../arabic_banner.jpg')} alt="Course Introduction"/>
+                    </div>
+                    <div className="intro-text">
+                        <h2>The Course</h2>
+                        <p>Давайте погрузимся в увлекательный мир арабского языка – одного из шести официальных языков ООН и ключа к богатой культуре Ближнего Востока. Этот курс разработан специально для русскоговорящих и начинается с азов: мы учим арабский алфавит, основные правила произношения и постепенно переходим к повседневному общению. Поскольку арабский язык полон нюансов и тонкостей, мы уделяем особое внимание грамматике и словарному запасу, чтобы вы могли выражать свои мысли четко и точно.</p>
+                        <p>Обучение включает в себя не только традиционные уроки, но и интерактивные упражнения, которые помогут вам лучше понять и прочувствовать язык. К тому же, использование реальных диалогов и текстов скрасит процесс и предоставит практический опыт, применимый в туризме, деловых переговорах или при личных встречах с носителями языка. Изучение арабского откроет перед вами двери в новый мир, расширит ваш кругозор и предоставит возможности для международного общения и карьерного роста.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="learn-section">
+                <h2>What you will learn</h2>
+                <p>When I started shaping this course, I had in mind the unique linguistic journey that you, as a Russian native, would embark on. Diving into the Arabic language opens up a whole new world of cultural treasures and business opportunities. I've meticulously tailored every lesson to build upon your existing Cyrillic-imbued alphabet knowledge, which in some surprising ways aligns with Arabic language logic. We'll move step-by-step, making sure that each concept is clearly understood and can be applied practically. It's more than just learning a language; it's about discovering a rich linguistic tapestry in a structured, digestible fashion. By the end of it, you'll not only grasp the fundamentals but also appreciate the nuances that make Arabic both beautiful and beneficial to learn.</p>
+            </div>
+            <div id="courses" className="container">
+                <CourseMaterials />
+            </div>
+            <div className="instructor-section mt-5">
+                <div className="row">
+                    <div className='instructor'>
+                        <div className="instructor-photo col-lg-4 text-center">
+                            <img src={require('../instractor_photo.jpeg')} alt="Instructor" className="img-fluid" style={{borderRadius:'10px'}} />
+                        </div>
+                        <div className="instructor-text col-lg-8">
+                            <h2>Your instructor</h2>
+                            <p>Abdelmegid Abouellail stands at the crossroads of cultural exchange, bringing with him a profound understanding of the Arabic language's intricate tapestry, which he expertly weaves into the fabric of his teaching. With years of dedicated experience in linguistics and a deep-rooted passion for fostering communication between diverse peoples, Abdelmegid has honed his craft as a skilled educator. His commitment to language education is underscored by his specialization in tailoring the rich lexicon and complex grammar of Arabic to the unique linguistic framework of Russian natives, bridging the gap between two distinct cultures through the power of language.
+
+At the heart of Abdelmegid's teaching philosophy lies a genuine connection to the Arabic language, a connection that extends beyond mere academic interest to a passionate engagement with the language's beauty and its cultural significance. This passion is palpable in his interactive and dynamic teaching style, which not only engages his students but also instills in them a similar appreciation for the nuances of Arabic. His ability to empathize with the linguistic challenges faced by Russian speakers creates a learning environment that is both supportive and enriching, reflecting his personal investment in each student's journey towards language mastery.</p>
+                        </div>                  
+                    </div>
+                </div>
+                <div className="row mt-5 text-center">
+                <div className="col-md-2">
+                    <img src={require('../essential.jpeg')} alt="Essential" className="img-fluid" style={{maxHeight:'300px', borderRadius:'10px'}} />
+                    <h3>Essential</h3>
+                    <p style={{ paddingBottom:'1.5rem'}}>Foundational Arabic proficiency for Russian speakers</p>
+                </div>
+                <div className="col-md-2">
+                    <img src={require('../Comprehensive.jpeg')} alt="Comprehensive" className="img-fluid" style={{maxHeight:'300px', borderRadius:'10px'}} />
+                    <h3>Comprehensive</h3>
+                    <p>From basic expressions to complex sentences for Russian natives</p>
+                </div>
+                <div className="col-md-2">
+                    <img src={require('../Interactive.jpeg')} alt="Interactive" className="img-fluid" style={{maxHeight:'300px', borderRadius:'10px'}} />
+                    <h3>Interactive</h3>
+                    <p>Engaging Arabic conversational skills for the Russian-speaking community</p>
+                </div>
+                </div>
+        </div>    
+        <div className="subscription-footer mt-5">
+        <footer className="text-center mt-5">
+          <p>© Школа арабского языка для русских 2024</p>
+          <div>
+            <a href="#" className="text-decoration-none">Terms of Use</a> | <a href="#" className="text-decoration-none">Privacy Policy</a>
+          </div>
+          <p>Teach Online with <a href="#" className="text-decoration-none"></a></p>
+        </footer>
+      </div>
+    </div>
+        
+    );
+}
+
+export default Home;

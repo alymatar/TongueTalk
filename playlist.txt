@@ -1,0 +1,81 @@
+// src/Playlist.js
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './Playlist.css';
+const Playlist = () => {
+    const [sections, setSections] = useState([]);
+    const [selectedItem, setSelectedItem] = useState(null);
+
+    useEffect(() => {
+        axios.get('http://localhost:5000/api/course_materials')
+            .then(response => {
+                setSections(response.data.sections);
+            })
+            .catch(error => {
+                console.error('Error fetching the course materials:', error);
+            });
+    }, []);
+
+    const handleSelectItem = (item) => {
+        setSelectedItem(item);
+    };
+
+   
+
+    return (
+       <div>
+          <nav className="navbar navbar-expand-lg navbar-light bg-light">
+                <a className="navbar-brand" href="/">CourseWebsite</a>
+                <button className="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span className="navbar-toggler-icon"></span>
+                </button>
+                <div className="collapse navbar-collapse" id="navbarNav">
+                    <ul className="navbar-nav ml-auto">
+                        <li className="nav-item">
+                            <a className="nav-link" href="#">Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+             <div className="course-materials">
+            <div className="playlist-container">
+                <div className="playlist">
+                    <h2>Playlist</h2>
+                    {sections.map(section => (
+                        <div key={section.name} className="playlist-section">
+                            <h3>{section.name}</h3>
+                            {section.items.map(item => (
+                                <div 
+                                    key={item.name} 
+                                    className="playlist-item" 
+                                    onClick={() => handleSelectItem(item)}
+                                >
+                                    {item.name}
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="content-container">
+                {selectedItem ? (
+                    selectedItem.type === 'pdf' ? (
+                        //url from google drive:  https://drive.google.com/file/d/1gs1lVBdnLpmlDwxLsyZNx760tokgDKhu/preview
+                        <iframe src={selectedItem.url} className="content-iframe"/>
+                    ) : (
+                        //url from dropbox: https://www.dropbox.com/scl/fi/wu905u2433s78xqndd4ng/video.mp4?rlkey=iv9cf20v6kawstg4hkscd5mgh&st=z6b3sjb3&raw=1
+                        <video controls width="100%">
+                        <source src={selectedItem.url} type="video/mp4" />
+                        Sorry, your browser doesn't support embedded videos.
+                      </video>
+                    )
+                ) : (
+                    <div>Select an item from the playlist</div>
+                )}
+            </div>
+        </div>
+        </div>
+    );
+}
+
+export default Playlist;

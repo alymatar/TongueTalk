@@ -1,0 +1,145 @@
+//after hashing
+import psycopg2
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import logging
+import bcrypt
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+INSERT_USERS_DATA = """
+INSERT INTO USERS (name, email, password, date_of_birth, auth) 
+VALUES (%s, %s, %s, %s, %s) 
+RETURNING id;
+"""
+
+CHECK_EMAIL_EXISTS = """
+SELECT id FROM USERS WHERE email = %s;
+"""
+
+AUTHENTICATE_USER = """
+SELECT id, name, email, password, date_of_birth, auth FROM USERS WHERE email = %s;
+"""
+
+def get_db_connection():
+    conn = psycopg2.connect(
+        dbname='test_course',
+        user='postgres',
+        password='ali9141353',
+        host='localhost',
+        port='5432'
+    )
+    return conn
+
+@app.route('/api/course_materials', methods=['GET'])
+def get_course_materials():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT section_name, item_type, item_name, authorized, url, preview_url FROM course_materials')
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    sections = {}
+    for row in rows:
+        section_name, item_type, item_name, authorized, url, preview_url = row
+        if section_name not in sections:
+            sections[section_name] = {'name': section_name, 'items': []}
+        sections[section_name]['items'].append({
+            'type': item_type,
+            'name': item_name,
+            'authorized': authorized,
+            'url': url,
+            'previewUrl': preview_url
+        })
+
+    return jsonify({'sections': list(sections.values())})
+
+@app.route('/api/register', methods=['POST'])
+def create_user():
+    try:
+        data = request.get_json()
+        logging.debug("Received data: %s", data)
+
+        name = data["name"]
+        email = data["email"]
+        password = data["password"]
+        date_of_birth = data["date_of_birth"]
+        auth = False  # Set the default value of auth to False
+
+        # Hash the password
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if the email already exists
+        cursor.execute(CHECK_EMAIL_EXISTS, (email,))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "This email is already registered."}), 409
+        
+        # Insert new user
+        cursor.execute(INSERT_USERS_DATA, (name, email, hashed_password.decode('utf-8'), date_of_birth, auth))
+        user_id = cursor.fetchone()[0]
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"id": user_id, "message": f"User with name {name}, email {email}, and date of birth {date_of_birth} created."}), 201
+    except Exception as e:
+        logging.error("Error creating user", exc_info=True)
+        return jsonify({"error": "An error occurred creating the user"}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    try:
+        data = request.get_json()
+        logging.debug("Received login data: %s", data)
+
+        email = data["email"]
+        password = data["password"]
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Authenticate user
+        cursor.execute(AUTHENTICATE_USER, (email,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if user:
+            user_id, name, email, hashed_password, date_of_birth, auth = user
+            
+            # Decode the hashed password from the database
+            hashed_password = hashed_password.encode('utf-8')
+            
+            # Verify the password
+            if bcrypt.checkpw(password.encode('utf-8'), hashed_password):
+                return jsonify({
+                    "id": user_id,
+                    "name": name,
+                    "email": email,
+                    "date_of_birth": date_of_birth,
+                    "auth": auth,
+                    "message": "Login successful"
+                }), 200
+            else:
+                return jsonify({"error": "Invalid email or password"}), 401
+        else:
+            return jsonify({"error": "Invalid email or password"}), 401
+    except Exception as e:
+        logging.error("Error logging in user", exc_info=True)
+        return jsonify({"error": "An error occurred during login"}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

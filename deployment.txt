@@ -1,0 +1,8 @@
+Neon tech for database
+
+pythonanywhere for flask
+Render for flask
+
+vercel for react
+
+https://course-frontend-git-main-arabiccourses-projects.vercel.app/

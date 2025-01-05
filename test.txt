@@ -1,0 +1,286 @@
+import psycopg2
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import logging
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
+from psycopg2.extras import RealDictCursor
+from dropbox import Dropbox
+from dropbox.files import WriteMode
+from dropbox.exceptions import ApiError
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+DROPBOX_ACCESS_TOKEN = 'sl.B8gUordSEkSPAC3o3ltmCvG6wm8Ceq84gMnaChlFTculHPaJZJ2A9yidqngv6bgW5aB5UblG0647iP3INQAVWXQZPzb2VDm4M3ymMCdgheFU0SFAGo9shlZUQDknx_mYB7zYuQ4fnhc1Bno'
+dbx = Dropbox(DROPBOX_ACCESS_TOKEN)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+
+INSERT_USERS_DATA = """
+INSERT INTO USERS (name, email, password, date_of_birth, auth) 
+VALUES (%s, %s, %s, %s, %s) 
+RETURNING id;
+"""
+INSERT_AUTH = """
+INSERT INTO USERS (auth) 
+VALUES (%s) 
+RETURNING id;
+"""
+CHECK_EMAIL_EXISTS = """
+SELECT id FROM USERS WHERE email = %s;
+"""
+
+AUTHENTICATE_USER = """
+SELECT id, name, email, password, date_of_birth, auth, auth_talking1, auth_talking2, auth_talking3 FROM USERS WHERE email = %s AND password = %s;
+"""
+
+INSERT_PAYMENT = """
+INSERT INTO payments (name, email, phone, file_path) 
+VALUES (%s, %s, %s, %s) 
+RETURNING id;
+"""
+
+
+
+#for online database on neon tech
+def get_db_connection():
+    conn = psycopg2.connect(
+        dbname='arabic_Course',
+        user='arabic_Course_owner',
+        password='jdBV2gnm7YvM',
+        host='ep-cool-recipe-a2w8nqcc.eu-central-1.aws.neon.tech',
+        port='5432',
+        sslmode='require'
+    )
+    return conn
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/api/course_materials', methods=['GET'])
+def get_course_materials():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT section_name, item_type, item_name, authorized, url, preview_url FROM course_materials')
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    sections = {}
+    for row in rows:
+        section_name, item_type, item_name, authorized, url, preview_url = row
+        if section_name not in sections:
+            sections[section_name] = {'name': section_name, 'items': []}
+        sections[section_name]['items'].append({
+            'type': item_type,
+            'name': item_name,
+            'authorized': authorized,
+            'url': url,
+            'previewUrl': preview_url
+        })
+
+    return jsonify({'sections': list(sections.values())})
+
+@app.route('/api/register', methods=['POST'])
+def create_user():
+    try:
+        data = request.get_json()
+        logging.debug("Received data: %s", data)
+
+        name = data["name"]
+        email = data["email"]
+        password = data["password"]
+        date_of_birth = data["date_of_birth"]
+        auth = False  # Set the default value of auth to False
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if the email already exists
+        cursor.execute(CHECK_EMAIL_EXISTS, (email,))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "This email is already registered."}), 409
+        
+        # Insert new user
+        cursor.execute(INSERT_USERS_DATA, (name, email, password, date_of_birth, auth))
+        user_id = cursor.fetchone()[0]
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"id": user_id, "message": f"User with name {name}, email {email}, and date of birth {date_of_birth} created."}), 201
+    except Exception as e:
+        logging.error("Error creating user", exc_info=True)
+        return jsonify({"error": "An error occurred creating the user"}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    try:
+        data = request.get_json()
+        logging.debug("Received login data: %s", data)
+
+        email = data["email"]
+        password = data["password"]
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Authenticate user
+        cursor.execute(AUTHENTICATE_USER, (email, password))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if user:
+            user_id, name, email, password, date_of_birth, auth, auth_talking1, auth_talking2, auth_talking3 = user
+            return jsonify({
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "password": password,
+                "date_of_birth": date_of_birth,
+                "auth": auth,
+                "auth_talking1": auth_talking1, 
+                "auth_talking2": auth_talking2,
+                "auth_talking3": auth_talking3,
+                "message": "Login successful"
+            }), 200
+        else:
+            return jsonify({"error": "Invalid email or password"}), 401
+    except Exception as e:
+        logging.error("Error logging in user", exc_info=True)
+        return jsonify({"error": "An error occurred during login"}), 500
+    
+@app.route('/api/payment', methods=['POST'])
+def submit_payment():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            saved_filename = f"{timestamp}_{filename}"
+            
+            # Read file content
+            file_content = file.read()
+            
+            # Upload file to Dropbox
+            dropbox_path = f"/uploads/{saved_filename}"
+            try:
+                dbx.files_upload(file_content, dropbox_path, mode=WriteMode('overwrite'))
+                logger.info(f"File uploaded successfully to Dropbox: {dropbox_path}")
+                
+                # Create a shared link
+                shared_link = dbx.sharing_create_shared_link(dropbox_path)
+                file_url = shared_link.url
+                logger.info(f"Shared link created: {file_url}")
+                
+            except ApiError as e:
+                logger.error(f"Dropbox API error: {str(e)}")
+                return jsonify({"error": "Error uploading file to Dropbox"}), 500
+            
+            # Process form data
+            data = request.form
+            name = data.get('name')
+            email = data.get('email')
+            phone = data.get('phone')
+            
+            logger.info(f"Received form data: name={name}, email={email}, phone={phone}")
+            
+            # Insert into database
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                logger.debug(f"Executing SQL: {INSERT_PAYMENT}")
+                logger.debug(f"With parameters: {(name, email, phone, file_url)}")
+                cursor.execute(INSERT_PAYMENT, (name, email, phone, file_url))
+                payment_id = cursor.fetchone()[0]
+                conn.commit()
+                logger.info(f"Payment inserted successfully. ID: {payment_id}")
+            except Exception as db_error:
+                logger.error(f"Database error: {str(db_error)}")
+                return jsonify({"error": "Error inserting payment into database"}), 500
+            finally:
+                cursor.close()
+                conn.close()
+            
+            return jsonify({
+                "id": payment_id, 
+                "message": "Payment information submitted successfully!",
+                "file_url": file_url
+            }), 201
+        else:
+            return jsonify({"error": "File type not allowed"}), 400
+    except Exception as e:
+        logger.error("Error submitting payment", exc_info=True)
+        return jsonify({"error": "An error occurred while submitting the payment"}), 500
+    
+
+@app.route('/api/materials', methods=['POST'])
+def add_material():
+    data = request.json
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO course_materials (section_name, item_type, item_name, authorized, url)
+        VALUES (%s, %s, %s, %s, %s) RETURNING *
+    """, (data['section_name'], data['item_type'], data['item_name'], data['authorized'], data['url']))
+    new_material = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify(new_material), 201
+
+@app.route('/api/materials', methods=['GET'])
+def get_materials():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM course_materials")
+    materials = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(materials)
+
+@app.route('/api/materials/<int:id>', methods=['PUT'])
+def update_material(id):
+    data = request.json
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE course_materials
+        SET section_name = %s, item_type = %s, item_name = %s, authorized = %s, url = %s
+        WHERE id = %s RETURNING *
+    """, (data['section_name'], data['item_type'], data['item_name'], data['authorized'], data['url'], id))
+    updated_material = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify(updated_material)
+
+@app.route('/api/materials/<int:id>', methods=['DELETE'])
+def delete_material(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM course_materials WHERE id = %s RETURNING *", (id,))
+    deleted_material = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    if deleted_material:
+        return '', 204
+    else:
+        return jsonify({'error': 'Material not found'}), 404
+
+if __name__ == '__main__':
+    app.run(debug=True)
